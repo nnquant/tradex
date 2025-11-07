@@ -4,8 +4,9 @@ REM  Tradex 一键安装脚本
 REM  功能：
 REM    1. 检测并安装 Node.js / npm
 REM    2. 设置 npm 中国镜像源
-REM    3. 检测并安装 uv，并设置中国镜像源
-REM    4. 执行 uv sync 同步依赖
+REM    3. 安装并检测 Claude Code CLI
+REM    4. 检测并安装 uv，并设置中国镜像源
+REM    5. 执行 uv sync 同步依赖
 REM  注意：请以管理员身份运行，以便 winget/msiexec 能顺利安装软件
 REM -------------------------------------------
 
@@ -15,6 +16,7 @@ chcp 65001 >nul
 pushd "%~dp0"
 call :ensure_node
 call :configure_npm_registry
+call :ensure_claude_code
 call :ensure_uv
 call :configure_uv_registry
 call :run_uv_sync
@@ -99,6 +101,47 @@ if %errorlevel%==0 (
 )
 goto :eof
 
+:ensure_claude_code
+REM 检测 Claude Code CLI（命令行名称：claude）
+where claude >nul 2>nul
+if %errorlevel%==0 (
+    for /f %%i in ('claude --version 2^>nul') do (
+        set "CLAUDE_VERSION=%%i"
+        goto :claude_found
+    )
+:claude_found
+    if defined CLAUDE_VERSION (
+        echo 已检测到 Claude Code CLI 版本 !CLAUDE_VERSION!。
+    ) else (
+        echo 已检测到 Claude Code CLI。
+    )
+    goto :eof
+)
+
+echo 未检测到 Claude Code CLI，开始使用 npm 全局安装...
+call :install_claude_code
+where claude >nul 2>nul
+if not %errorlevel%==0 (
+    echo Claude Code CLI 安装失败，请确认 npm 全局 bin 目录已加入 PATH。
+    exit /b 1
+)
+echo Claude Code CLI 安装完成。
+goto :eof
+
+:install_claude_code
+where npm >nul 2>nul
+if not %errorlevel%==0 (
+    echo 未检测到 npm，无法安装 Claude Code CLI。
+    exit /b 1
+)
+echo 正在安装 @anthropic-ai/claude-code（可能需要几分钟）...
+npm install -g @anthropic-ai/claude-code
+if not %errorlevel%==0 (
+    echo npm 安装 Claude Code CLI 失败，请手动执行：npm install -g @anthropic-ai/claude-code
+    exit /b 1
+)
+goto :eof
+
 :ensure_uv
 REM 检测 uv 是否可用
 call :locate_uv
@@ -171,4 +214,3 @@ if not %errorlevel%==0 (
 )
 echo uv sync 完成。
 goto :eof
-
