@@ -1,0 +1,22 @@
+[environment]
+cwd = "."
+
+[model]
+base_url = "https://api.deepseek.com/anthropic"
+api_key = ""
+model_name = "deepseek-chat"
+fast_model_name = "deepseek-chat"
+
+[agent]
+permission_mode = "acceptEdits"
+extension_enabled = [
+    "tradex_akshare"
+]
+
+[extensions]
+tradex_akshare = { path = "src.extension.tradex_akshare" }
+tradex_easytrader = { path = "src.extension.tradex_easytrader" }
+
+[extension.tradex_easytrader]
+client_name = "ths"
+xiadan_path = "D:/software/同花顺远航版/transaction/xiadan.exe"

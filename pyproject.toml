@@ -1,0 +1,16 @@
+[project]
+name = "tradex"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "akshare>=1.17.83",
+    "claude-agent-sdk>=0.1.6",
+    "easytrader>=0.23.7",
+    "loguru>=0.7.3",
+    "tradex-tui",
+]
+
+[tool.uv.sources]
+tradex-tui = { path = "src/tradex-tui" }

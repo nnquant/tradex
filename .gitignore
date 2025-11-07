@@ -1,0 +1,25 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# IDE
+.vscode/
+.idea/
+.claude/
+.codex/
+.tradex/
+
+# AI
+AGENTS.md
+CLAUDE.md
+
+*.toml
+!tradex.config.example.toml
+!pyproject.toml
