@@ -3,7 +3,7 @@ cwd = "."
 
 [model]
 base_url = "https://api.deepseek.com/anthropic"
-api_key = ""
+api_key = "你的API KEY"
 model_name = "deepseek-chat"
 fast_model_name = "deepseek-chat"
 
@@ -19,4 +19,4 @@ tradex_easytrader = { path = "src.extension.tradex_easytrader" }
 
 [extension.tradex_easytrader]
 client_name = "ths"
-xiadan_path = "D:/software/同花顺远航版/transaction/xiadan.exe"
+xiadan_path = "你的同花顺下单程序 xidan.exe 文件的路径"

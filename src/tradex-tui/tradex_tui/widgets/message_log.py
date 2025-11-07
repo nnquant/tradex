@@ -2,6 +2,8 @@ from __future__ import annotations
 import re
 import asyncio
 
+from pathlib import Path
+
 from textual import messages, on
 from textual.app import ComposeResult
 from textual.containers import Vertical
@@ -269,7 +271,7 @@ class WelcomeScreen(Static):
         info_table.add_row("[gray50]model:[/]", f"{model} \t[blue]/model[/] to change")
         info_table.add_row("[gray50]base_url:[/]", f"{base_url}")
         info_table.add_row("[gray50]api_key:[/]", f"{masked_api_key}")
-        directory = self.config["environment"]["cwd"]
+        directory = str(Path(self.config["environment"]["cwd"]).resolve())
         info_table.add_row("[gray50]directory:[/]", f"{directory}")
 
         prompt_message = """

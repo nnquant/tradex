@@ -13,6 +13,9 @@ REM -------------------------------------------
 setlocal EnableExtensions EnableDelayedExpansion
 chcp 65001 >nul
 
+set "USE_CHINA_MIRROR=Y"
+call :ask_mirror_preference
+
 pushd "%~dp0"
 call :ensure_node
 call :configure_npm_registry
@@ -24,6 +27,22 @@ echo.
 echo 所有依赖处理完成。
 popd
 exit /b 0
+
+:ask_mirror_preference
+REM 询问是否切换至国内镜像源
+set /p "MIRROR_CHOICE=是否将 npm 和 uv 切换为国内镜像源？(Y/n): "
+if not defined MIRROR_CHOICE (
+    set "MIRROR_CHOICE=Y"
+)
+set "MIRROR_CHOICE=!MIRROR_CHOICE:~0,1!"
+if /i "!MIRROR_CHOICE!"=="Y" (
+    set "USE_CHINA_MIRROR=Y"
+    echo 已选择使用国内镜像源。
+) else (
+    set "USE_CHINA_MIRROR=N"
+    echo 已选择保留官方镜像源。
+)
+goto :eof
 
 :ensure_node
 REM 检测 Node.js 是否可用
@@ -81,6 +100,10 @@ goto :eof
 
 :configure_npm_registry
 REM 设置 npm 中国镜像源
+if /i "!USE_CHINA_MIRROR!" NEQ "Y" (
+    echo 用户选择不切换 npm 镜像源，跳过。
+    goto :eof
+)
 where npm >nul 2>nul
 if not %errorlevel%==0 (
     echo 未检测到 npm，跳过镜像配置。
@@ -180,6 +203,10 @@ goto :eof
 
 :configure_uv_registry
 REM 为 uv 配置中国镜像源
+if /i "!USE_CHINA_MIRROR!" NEQ "Y" (
+    echo 用户选择不切换 uv 镜像源，跳过。
+    goto :eof
+)
 if not defined UV_BIN (
     call :locate_uv
 )
