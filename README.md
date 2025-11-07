@@ -1,7 +1,8 @@
 Tradex
 ======
+基于 Claude Code CLI 开发的面向量化研究与交易基建的实验性项目。
 
-面向量化研究与交易基建的实验性项目，依赖 Node.js 提供的 Claude Code CLI 以及 Python 侧的 `uv` 包管理器。以下指南帮助你在 **Windows** 环境快速完成安装。
+# 安装指南
 
 一键安装（推荐）
 ----------------
@@ -78,10 +79,3 @@ uv sync
 - `claude --version` 至少为 2.0.0；
 - `uv --version` 正常输出；
 - `uv run python run_tradex.py --help` 可验证基础依赖是否齐全。
-
-思路与迁移
-----------
-
-- 通过 npm/uv 配置镜像，可以在任何内网或受限网络环境中复制同样的安装流程，只需更换镜像地址。
-- 若未来引入其他 CLI（如 open-interpreter、Cursor CLI），可复用 `install.cmd` 中的检测→镜像→安装模式：先 `where <command>`，再执行对应的包管理器安装命令，并在失败时给出可手动执行的指令。
-- 当需要在 CI 中做环境预热，也可以直接复用 `uv sync`，并在流水线里通过 `claude --version` 确保 Claude Code CLI 存在，从而保障测试与本地一致。
