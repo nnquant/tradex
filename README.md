@@ -79,3 +79,23 @@ uv sync
 - `claude --version` 至少为 2.0.0；
 - `uv --version` 正常输出；
 - `uv run python run_tradex.py --help` 可验证基础依赖是否齐全。
+
+开始使用
+--------
+
+1. 复制配置模板  
+   将目录下的配置文件 `tradex.config.example.toml` 重命名为 `tradex.config.toml`  
+
+   建议使用与运行环境匹配的文件名，如需多份配置可命名为 `tradex.config.paper.toml`、`tradex.config.live.toml` 等。
+
+2. 根据真实环境填写配置  
+   - `model.api_key`：替换为你的真实大模型密钥，必要时也可自建代理并更新 `model.base_url`。  
+   - `environment.cwd`：保持为仓库根目录或设为运行脚本/数据所在路径，确保相对路径可解析。  
+   - `extensions` 与 `extension.tradex_easytrader`：仅保留需要的扩展，像 `xiadan_path` 等字段必须指向实际可执行程序。  
+   完成修改后请把配置文件保存在安全位置，并根据团队合规策略设置访问权限。
+
+3. 启动应用  
+   ```shell
+   uv run run_tradex.py
+   ```  
+   上述命令默认读取 `tradex.config.toml`。如果你创建了自定义文件，可通过 `uv run run_tradex.py --config tradex.config.paper.toml` 显式指定。首次启动建议在终端关注日志，验证模型连通性、扩展加载状态及账户接口是否正常。

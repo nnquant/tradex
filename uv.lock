@@ -1994,6 +1994,15 @@ wheels = [
 ]
 
 [[package]]
+name = "tomlkit"
+version = "0.13.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/cc/18/0bbf3884e9eaa38819ebe46a7bd25dcd56b67434402b66a58c4b8e552575/tomlkit-0.13.3.tar.gz", hash = "sha256:430cf247ee57df2b94ee3fbe588e71d362a941ebb545dec29b53961d61add2a1", size = 185207 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bd/75/8539d011f6be8e29f339c42e633aae3cb73bffa95dd0f9adec09b9c58e85/tomlkit-0.13.3-py3-none-any.whl", hash = "sha256:c89c649d79ee40629a9fda55f8ace8c6a1b42deb912b2a8fd8d942ddadb606b0", size = 38901 },
+]
+
+[[package]]
 name = "tqdm"
 version = "4.67.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2014,6 +2023,7 @@ dependencies = [
     { name = "claude-agent-sdk" },
     { name = "easytrader" },
     { name = "loguru" },
+    { name = "tomlkit" },
     { name = "tradex-tui" },
 ]
 
@@ -2023,22 +2033,25 @@ requires-dist = [
     { name = "claude-agent-sdk", specifier = ">=0.1.6" },
     { name = "easytrader", specifier = ">=0.23.7" },
     { name = "loguru", specifier = ">=0.7.3" },
+    { name = "tomlkit", specifier = ">=0.13.2" },
     { name = "tradex-tui", directory = "src/tradex-tui" },
 ]
 
 [[package]]
 name = "tradex-tui"
-version = "0.2.23"
+version = "0.3.4"
 source = { directory = "src/tradex-tui" }
 dependencies = [
     { name = "rich" },
     { name = "textual" },
+    { name = "tomlkit" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "rich", specifier = ">=13.7.0" },
     { name = "textual", specifier = ">=0.58.0" },
+    { name = "tomlkit", specifier = ">=0.13.2" },
 ]
 
 [[package]]

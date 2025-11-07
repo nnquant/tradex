@@ -4,10 +4,24 @@ import asyncio
 
 from pathlib import Path
 
-from textual import messages, on
+from textual import on
 from textual.app import ComposeResult
-from textual.containers import Vertical
-from textual.widgets import Static, Collapsible, Markdown, Label, ListView, ListItem, RadioButton, RadioSet, RichLog
+from textual.containers import Vertical, Horizontal
+from textual.widgets import (
+    Static,
+    Collapsible,
+    Markdown,
+    Label,
+    ListView,
+    ListItem,
+    RadioButton,
+    RadioSet,
+    Input,
+    Button,
+)
+
+from tomlkit import parse, dumps
+from tomlkit.exceptions import TOMLKitError
 
 from rich.panel import Panel
 from rich.table import Table
@@ -268,17 +282,16 @@ class WelcomeScreen(Static):
         base_url = self.config["model"]["base_url"]
         api_key = self.config["model"]["api_key"]
         masked_api_key = f"{api_key[:4]}****{api_key[-4:]}"
-        info_table.add_row("[gray50]model:[/]", f"{model} \t[blue]/model[/] to change")
+        info_table.add_row("[gray50]model:[/]", f"[blue]{model}[/]")
         info_table.add_row("[gray50]base_url:[/]", f"{base_url}")
         info_table.add_row("[gray50]api_key:[/]", f"{masked_api_key}")
         directory = str(Path(self.config["environment"]["cwd"]).resolve())
         info_table.add_row("[gray50]directory:[/]", f"{directory}")
 
         prompt_message = """
-  [gray50]欢迎！在下方输入框中向 Tradex 发送消息开始使用，你也可以使用以下命令（命令系统暂未开放）： 
+  [gray50]欢迎！在下方输入框中向 Tradex 发送消息开始使用，你也可以使用以下命令： 
 
-  [blue]/robot[/] - 运行机器人
-  [blue]/model[/] - 切换模型
+  [blue]/model[/] - 配置模型的访问地址、密钥和模型名称等参数
 [/gray50]
 """
 
@@ -290,6 +303,168 @@ class WelcomeScreen(Static):
         )
         yield Static(content)
         yield Static(Text.from_markup(prompt_message))
+
+
+class SettingModelDialogBlock(Static):
+    """
+    模型参数设置对话框，负责展示输入框并在确认后写回配置文件。
+
+    :param config: 当前的配置内容。
+    :type config: dict
+    :param config_path: tradex 配置文件路径。
+    :type config_path: Path
+    """
+
+    DEFAULT_CSS = """
+    SettingModelDialogBlock {
+        border: round white;
+        height: 26;
+        padding: 1;
+        margin: 1 0;
+    }
+
+    SettingModelDialogBlock Input {
+        margin: 1 0 1 0;
+    }
+
+    SettingModelDialogBlock Static {
+        margin: 0 0 1 0;
+    }
+
+    SettingModelDialogBlock Label {
+        margin: 1 0 1 0;
+    }
+
+    SettingModelDialogBlock Button {
+        width: 9;
+        margin-right: 1;
+    }
+    """
+
+    def __init__(self, config: Dict[str, Any], config_path: Path) -> None:
+        super().__init__(classes="setting-model-dialog")
+        self._config = config
+        self._config_path = Path(config_path)
+        self._base_url_input: Input | None = None
+        self._api_key_input: Input | None = None
+        self._model_name_input: Input | None = None
+        self._feedback_label: Label | None = None
+
+    def compose(self) -> ComposeResult:
+        model_config = self._config.get("model", {})
+        guide_text = Text.from_markup("[gray50]设置 BASE_URL / API_KEY / MODEL_NAME，以控制调用的模型接口。[/gray50]")
+        yield Static(Text.from_markup("[b]• 模型设置[/b]"))
+        yield Static(guide_text)
+
+        self._base_url_input = Input(
+            value=model_config.get("base_url", ""),
+            placeholder="BASE_URL",
+            id="setting-base-url",
+        )
+        self._api_key_input = Input(
+            value=model_config.get("api_key", ""),
+            placeholder="API_KEY",
+            password=True,
+            id="setting-api-key",
+        )
+        self._model_name_input = Input(
+            value=model_config.get("model_name", ""),
+            placeholder="MODEL_NAME",
+            id="setting-model-name",
+        )
+
+        yield self._base_url_input
+        yield self._api_key_input
+        yield self._model_name_input
+
+        yield Horizontal(
+            Button("确认", id="setting-confirm", variant="success"),
+            Button("取消", id="setting-cancel", variant="primary"),
+        )
+
+        self._feedback_label = Label("", classes="setting-feedback")
+        yield self._feedback_label
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if self.disabled:
+            return
+        if event.button.id == "setting-confirm":
+            self._handle_confirm()
+        elif event.button.id == "setting-cancel":
+            self._set_feedback("已取消修改。", is_error=False)
+            self._disable_block()
+
+    def _handle_confirm(self) -> None:
+        base_url = (self._base_url_input.value if self._base_url_input else "").strip()
+        api_key = (self._api_key_input.value if self._api_key_input else "").strip()
+        model_name = (self._model_name_input.value if self._model_name_input else "").strip()
+
+        if not base_url or not api_key or not model_name:
+            self._set_feedback("请完整填写 BASE_URL/API_KEY/MODEL_NAME。", is_error=True)
+            return
+
+        try:
+            config_data = self._load_config()
+        except TOMLKitError as error:
+            logger.error(
+                "failed to parse config path=[{}] error=[{}]",
+                self._config_path,
+                error,
+            )
+            self._set_feedback("配置解析失败，无法保存。", is_error=True)
+            return
+        except FileNotFoundError:
+            config_data = {}
+
+        model_section = config_data.setdefault("model", {})
+        model_section["base_url"] = base_url
+        model_section["api_key"] = api_key
+        model_section["model_name"] = model_name
+
+        try:
+            self._save_config(config_data)
+        except OSError as error:
+            logger.exception(
+                "failed to save config path=[{}] error=[{}]",
+                self._config_path,
+                error,
+            )
+            self._set_feedback("写入配置失败，请查看终端日志。", is_error=True)
+            return
+
+        self._config.setdefault("model", {}).update(
+            {
+                "base_url": base_url,
+                "api_key": api_key,
+                "model_name": model_name,
+            }
+        )
+
+        self._set_feedback("配置已保存，重启后生效。", is_error=False)
+        self._disable_block()
+
+    def _disable_block(self) -> None:
+        for input_widget in self.query(Input):
+            input_widget.disabled = True
+        for button in self.query(Button):
+            button.disabled = True
+        self.disabled = True
+
+    def _set_feedback(self, message: str, *, is_error: bool) -> None:
+        if not self._feedback_label:
+            return
+        style = "red" if is_error else "green"
+        self._feedback_label.update(Text(message, style=style))
+
+    def _load_config(self) -> Dict[str, Any]:
+        if not self._config_path.exists():
+            raise FileNotFoundError(self._config_path)
+        with self._config_path.open("r", encoding="utf-8") as config_file:
+            return parse(config_file.read())
+
+    def _save_config(self, data: Dict[str, Any]) -> None:
+        with self._config_path.open("w", encoding="utf-8") as config_file:
+            config_file.write(dumps(data))
 
 
 class MessageLog(Vertical):
@@ -355,6 +530,12 @@ class MessageLog(Vertical):
 
     def add_welcome_screen(self, config):
         block = WelcomeScreen(config=config)
+        self.mount(block)
+        if self.auto_scroll:
+            self._scroll_to_end()
+
+    def add_setting_dialog(self, config: Dict[str, Any], config_path: Path) -> None:
+        block = SettingModelDialogBlock(config=config, config_path=config_path)
         self.mount(block)
         if self.auto_scroll:
             self._scroll_to_end()

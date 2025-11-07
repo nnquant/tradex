@@ -1,10 +1,10 @@
 [project]
 name = "tradex_tui"
-version = "0.2.24"
+version = "0.3.4"
 description = "Textual + Rich UI components for CLI AI agents (interaction area + status bar + approvals)"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["textual>=0.58.0", "rich>=13.7.0"]
+dependencies = ["textual>=0.58.0", "rich>=13.7.0", "tomlkit>=0.13.2"]
 
 [build-system]
 requires = ["setuptools", "wheel"]
