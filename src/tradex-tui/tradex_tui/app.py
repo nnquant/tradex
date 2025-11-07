@@ -148,6 +148,9 @@ class AgentApp(App):
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         text = event.value.strip()
+        if text.startswith("/"):
+            event.input.value = ""
+            return
         if text:
             self._add_user_message(text)
             event.input.value = ""

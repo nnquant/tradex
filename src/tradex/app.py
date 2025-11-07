@@ -1,4 +1,4 @@
-import tomllib, asyncio, importlib
+import asyncio, importlib
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 from pathlib import Path
@@ -13,16 +13,19 @@ from claude_agent_sdk import PermissionResultAllow, PermissionResultDeny
 
 from .utils.prompt import get_prompt
 from .utils.log import setup_log
+from .utils.config import load_config
 
-from src.extension import tradex_easytrader, tradex_akshare
 
 _SRC_DIR = Path(__file__).parent
 
 class TradexApp(AgentApp):
     
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config_path: str | Path) -> None:
         super().__init__()
-        self.config = config
+        self.config_path = Path(config_path).resolve()
+        if not self.config_path.exists():
+            raise FileNotFoundError(f"配置文件不存在: {self.config_path}")
+        self.config = load_config(str(self.config_path))
         self.claude_client: ClaudeSDKClient | None = None
 
         self.system_prompt = ""
@@ -40,10 +43,13 @@ class TradexApp(AgentApp):
             await self.claude_client.disconnect()
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
-        # await super().on_input_submitted(event)
         text = event.value.strip()
-        if text:
-             self.run_worker(self.handle_user_input(text))
+        if not text:
+            return
+        if self._handle_command(text):
+            event.input.value = ""
+            return
+        self.run_worker(self.handle_user_input(text))
 
     async def init(self):
         environment_config = self.config.get("environment")
@@ -172,3 +178,12 @@ class TradexApp(AgentApp):
             return PermissionResultAllow()
         else:
             return PermissionResultDeny()
+
+    def _handle_command(self, command: str) -> bool:
+        """
+        处理以斜杠开头的命令，返回 True 表示命令已消耗。
+        """
+        if command == "/model":
+            self.msg_log.add_setting_dialog(self.config, self.config_path)
+            return True
+        return False
