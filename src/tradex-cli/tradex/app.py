@@ -33,8 +33,7 @@ class TradexApp(AgentApp):
         self.system_prompt = ""
     
     async def on_ready(self):
-        # self.controller.notify("connected to agent backend", level="information")
-        self.controller.add_log_message("tradex - 系统正在初始化", "info")
+        self.controller.add_log_message("Tradex - 系统正在初始化", "info")
         await self.init()
         self.controller.clear()
         self.controller.add_welcome_screen(self.config)
@@ -101,11 +100,7 @@ class TradexApp(AgentApp):
         }
         self.system_prompt = render_prompt(_SRC_DIR / "prompts" / "system.md", prompt_context)
         options = ClaudeAgentOptions(
-            system_prompt="你是tradex，一个专注于投资与交易的AI助手。核心目标：通过写代码和调用工具完成数据获取、分析与下单协助。",            # system_prompt={
-            #     "type": "preset",
-            #     "preset": "claude_code",
-            #     "append": self.system_prompt,
-            # },
+            system_prompt="你是tradex，一个专注于投资与交易的AI助手。核心目标：通过写代码和调用工具完成数据获取、分析与下单协助。",
             permission_mode=agent_config.get("permission_mode"),
             cwd=str(cwd),
             env=envs,
@@ -144,6 +139,7 @@ class TradexApp(AgentApp):
         if not self.claude_client:
             return
 
+        self.controller.set_work_indicator(True, "任务正在进行，请稍候...")
         await self.claude_client.query(f"{self.system_prompt}\n\n{user_input}")
 
         async for message in self.claude_client.receive_messages():
@@ -175,6 +171,13 @@ class TradexApp(AgentApp):
                         if content.content.find("Todos") != -1:
                             return
                     self.controller.add_tool_use_result(content.is_error, content.content) # type: ignore
+        elif isinstance(msg, SystemMessage):
+            if getattr(msg, "subtype", "") == "init":
+                self.controller.set_work_indicator(True, "任务正在进行，请稍候...")
+        elif isinstance(msg, ResultMessage):
+            self.controller.set_work_indicator(False)
+            duration_text = self._format_duration(getattr(msg, "duration_ms", None))
+            self.controller.add_system_message(f"任务已完成，耗时{duration_text}")
 
     async def prompt_for_tool_approval(self, tool_name, input_params, *args, **kwargs):
         future = asyncio.Future()
@@ -193,3 +196,29 @@ class TradexApp(AgentApp):
             self.msg_log.add_setting_dialog(self.config, self.config_path)
             return True
         return False
+
+    @staticmethod
+    def _format_duration(duration_ms: int | None) -> str:
+        """
+        将毫秒级耗时格式化为 ``xxh xxm xxs`` 形式，并自动省略为 ``00`` 的小时或分钟。
+
+        :param duration_ms: 后端返回的耗时，单位为毫秒。
+        :type duration_ms: int | None
+        :returns: 去除冗余小时/分钟后的耗时字符串。
+        :rtype: str
+        """
+
+        if duration_ms is None:
+            return "0s"
+        total_seconds = max(0, int(duration_ms) // 1000)
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+
+        parts: list[str] = []
+        if hours:
+            parts.append(f"{hours:02d}h")
+        if minutes:
+            parts.append(f"{minutes:02d}m")
+        parts.append(f"{seconds:02d}s")
+        return " ".join(parts)

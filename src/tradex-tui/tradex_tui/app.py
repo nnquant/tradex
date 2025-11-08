@@ -12,6 +12,7 @@ from textual.binding import Binding
 from .widgets.message_log import MessageLog
 from .widgets.status_bar import StatusBar
 from .widgets.approval import ApprovalModal, ApprovalResult
+from .widgets.work_indicator import WorkIndicator
 from .models import Message, ToolUse
 
 class AgentController:
@@ -82,10 +83,14 @@ class AgentController:
     def set_status(self, **kwargs) -> None:
         self._safe_call(self.app._update_status, **kwargs)
 
+    def set_work_indicator(self, is_working: bool, message: str | None = None) -> None:
+        self._safe_call(self.app._set_work_indicator, is_working, message)
+
 class AgentApp(App):
     CSS = '''
     #message-log { height: 1fr; overflow-y: auto; }
-    #status-bar { dock: bottom; height: 1; content-align: right middle; }
+    #status-bar { height: 1; content-align: right middle; }
+    #work-indicator { color: gray }
     #input { dock: bottom; }
 
     ToastRack {
@@ -105,8 +110,9 @@ class AgentApp(App):
     def compose(self) -> ComposeResult:
         self.msg_log = MessageLog()
         self.status = StatusBar()
+        self.work_indicator = WorkIndicator()
         self.user_input = Input(placeholder="在这里输入消息", id="input")
-        yield Vertical(self.msg_log, self.status, self.user_input)
+        yield Vertical(self.msg_log, self.work_indicator, self.user_input)
 
     def _clear(self) -> None:
         self.msg_log.clear()
@@ -145,6 +151,12 @@ class AgentApp(App):
         for k, v in kwargs.items():
             if hasattr(self.status, k):
                 setattr(self.status, k, v)
+
+    def _set_work_indicator(self, is_working: bool, message: str | None = None) -> None:
+        if is_working:
+            self.work_indicator.show_progress(message)
+        else:
+            self.work_indicator.hide()
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         text = event.value.strip()

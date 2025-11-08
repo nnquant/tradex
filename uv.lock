@@ -6,6 +6,13 @@ resolution-markers = [
     "python_full_version < '3.12'",
 ]
 
+[manifest]
+members = [
+    "tradex",
+    "tradex-cli",
+    "tradex-tui",
+]
+
 [[package]]
 name = "aiohappyeyeballs"
 version = "2.6.1"
@@ -2081,6 +2088,23 @@ name = "tradex"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "jinja2" },
+    { name = "tradex-cli" },
+    { name = "tradex-tui" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "jinja2", specifier = ">=3.1.6" },
+    { name = "tradex-cli", editable = "src/tradex-cli" },
+    { name = "tradex-tui", editable = "src/tradex-tui" },
+]
+
+[[package]]
+name = "tradex-cli"
+version = "1.0.0"
+source = { editable = "src/tradex-cli" }
+dependencies = [
     { name = "akshare" },
     { name = "baostock" },
     { name = "claude-agent-sdk" },
@@ -2100,13 +2124,13 @@ requires-dist = [
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "pyarrow", specifier = ">=22.0.0" },
     { name = "tomlkit", specifier = ">=0.13.2" },
-    { name = "tradex-tui", directory = "src/tradex-tui" },
+    { name = "tradex-tui", editable = "src/tradex-tui" },
 ]
 
 [[package]]
 name = "tradex-tui"
-version = "0.3.4"
-source = { directory = "src/tradex-tui" }
+version = "0.3.8"
+source = { editable = "src/tradex-tui" }
 dependencies = [
     { name = "rich" },
     { name = "textual" },
