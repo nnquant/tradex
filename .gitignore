@@ -23,3 +23,5 @@ CLAUDE.md
 *.toml
 !tradex.config.example.toml
 !pyproject.toml
+
+.uv-cache/
