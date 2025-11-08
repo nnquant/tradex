@@ -11,6 +11,8 @@ dependencies = [
     "loguru>=0.7.3",
     "tradex-tui",
     "tomlkit>=0.13.2",
+    "baostock>=0.8.9",
+    "pyarrow>=22.0.0",
 ]
 
 [tool.uv.sources]

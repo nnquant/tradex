@@ -1,4 +1,6 @@
 import asyncio, importlib
+import platform
+from datetime import datetime, timezone
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 from pathlib import Path
@@ -11,7 +13,7 @@ from claude_agent_sdk import AssistantMessage, UserMessage, ResultMessage, Syste
 from claude_agent_sdk import TextBlock, ToolUseBlock, ToolResultBlock, ThinkingBlock
 from claude_agent_sdk import PermissionResultAllow, PermissionResultDeny
 
-from .utils.prompt import get_prompt
+from .utils.prompt import render_prompt
 from .utils.log import setup_log
 from .utils.config import load_config
 
@@ -92,13 +94,17 @@ class TradexApp(AgentApp):
         extension_options = self.config.get("extension", {})
         mcp_servers, allowed_tools = self.init_extensions_from_config(extension_config, extension_options, extension_enabled)
 
-        self.system_prompt = get_prompt(_SRC_DIR / "prompts" / "system.md")
+        prompt_context = {
+            "ENV_CWD": str(cwd),
+            "ENV_PLATFORM": platform.platform(),
+            "ENV_DATETIME": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S %Z"),
+        }
+        self.system_prompt = render_prompt(_SRC_DIR / "prompts" / "system.md", prompt_context)
         options = ClaudeAgentOptions(
-            system_prompt="你是tradex，一个专注于投资与交易的AI助手，运行在支持代码生成与MCP工具调用的环境中。核心目标：通过写代码和调用工具完成数据获取、分析与下单协助。",
-            # system_prompt={
+            system_prompt="你是tradex，一个专注于投资与交易的AI助手。核心目标：通过写代码和调用工具完成数据获取、分析与下单协助。",            # system_prompt={
             #     "type": "preset",
             #     "preset": "claude_code",
-            #     "append": "你是tradex，一个专注于投资与交易的AI助手，运行在支持代码生成与MCP工具调用的环境中。核心目标：通过写代码和调用工具完成数据获取、分析与下单协助。"
+            #     "append": self.system_prompt,
             # },
             permission_mode=agent_config.get("permission_mode"),
             cwd=str(cwd),
