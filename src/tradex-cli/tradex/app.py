@@ -1,5 +1,7 @@
 import asyncio, importlib
+import json
 import platform
+import uuid
 from datetime import datetime, timezone
 
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -29,8 +31,13 @@ class TradexApp(AgentApp):
             raise FileNotFoundError(f"配置文件不存在: {self.config_path}")
         self.config = load_config(str(self.config_path))
         self.claude_client: ClaudeSDKClient | None = None
-
         self.system_prompt = ""
+        self.cwd: Path | None = None
+        self.base_cwd: Path | None = None
+        self.storage_root: Path | None = None
+        self.session_id: str | None = None
+        self.session_history: list[Dict[str, Any]] = []
+        self.session_started_at: str | None = None
     
     async def on_ready(self):
         self.controller.add_log_message("Tradex - 系统正在初始化", "info")
@@ -40,6 +47,7 @@ class TradexApp(AgentApp):
         self.console.set_window_title("Tradex")
 
     async def on_exit(self):
+        self._save_session_history()
         if self.claude_client:
             await self.claude_client.disconnect()
 
@@ -50,6 +58,7 @@ class TradexApp(AgentApp):
         if self._handle_command(text):
             event.input.value = ""
             return
+        self._append_session_event("user_input", {"text": text})
         self.run_worker(self.handle_user_input(text))
 
     async def init(self):
@@ -57,19 +66,29 @@ class TradexApp(AgentApp):
         if environment_config is None:
             raise ValueError("Missing 'environment' configuration")
         
-        cwd = environment_config.get("cwd")
+        cwd_config = environment_config.get("cwd")
         project = environment_config.get("project")
-        if not cwd:
-            cwd = Path.home()
-            cwd = Path.cwd()
-        else:
-            cwd = Path(cwd)
-        cwd = cwd
+        base_cwd = Path(cwd_config).expanduser() if cwd_config else Path.cwd()
         if project:
-            cwd = cwd / project
-        cwd.mkdir(parents=True, exist_ok=True)
+            base_cwd = base_cwd / project
+        self.base_cwd = base_cwd
 
-        setup_log(str(cwd / ".tradex" / "tradex.log"))
+        workspace_dir = base_cwd / "workspace"
+        timestamp = datetime.now().astimezone()
+        run_cwd = workspace_dir / timestamp.strftime("%Y%m%d%H%M%S")
+        run_cwd.mkdir(parents=True, exist_ok=True)
+        cwd = run_cwd
+        self.cwd = cwd
+
+        storage_root = base_cwd / ".tradex"
+        storage_root.mkdir(parents=True, exist_ok=True)
+        self.storage_root = storage_root
+        log_path = (storage_root / "tradex.log").resolve()
+        setup_log(str(log_path))
+
+        self.session_id = str(uuid.uuid4())
+        self.session_started_at = datetime.now().astimezone().isoformat()
+        self.session_history = []
 
         envs = {}
         model_config = self.config.get("model", {})
@@ -139,7 +158,7 @@ class TradexApp(AgentApp):
         if not self.claude_client:
             return
 
-        self.controller.set_work_indicator(True, "任务正在进行，请稍候...")
+        self.controller.set_work_indicator(True, "Tradex is working in progress ...")
         await self.claude_client.query(f"{self.system_prompt}\n\n{user_input}")
 
         async for message in self.claude_client.receive_messages():
@@ -154,30 +173,78 @@ class TradexApp(AgentApp):
 
         logger.info(msg)
         if isinstance(msg, AssistantMessage):
+            assistant_record = {"text_blocks": [], "tool_calls": [], "thinking": []}
             for content in msg.content:
                 if isinstance(content, TextBlock):
                     self.controller.add_message(text=content.text)
+                    assistant_record["text_blocks"].append(content.text)
+                elif isinstance(content, ThinkingBlock):
+                    assistant_record["thinking"].append(getattr(content, "text", ""))
                 elif isinstance(content, ToolUseBlock):
                     if content.name == "TodoWrite":
                         todos = content.input.get("todos", [])
+                        in_progress = next(
+                            (
+                                item.get("content")
+                                for item in todos
+                                if isinstance(item, dict) and item.get("status") == "in_progress"
+                            ),
+                            None,
+                        )
+                        indicator_message = '正在' + str(in_progress) if in_progress else "Tradex is working in progress ..."
+                        self.controller.set_work_indicator(True, indicator_message)
                         self.controller.add_todo_list(todos)
+                        if assistant_record["text_blocks"] or assistant_record["tool_calls"] or assistant_record["thinking"]:
+                            self._append_session_event("assistant_message", assistant_record)
+                        self._append_session_event(
+                            "assistant_todo",
+                            {"todos": self._json_safe(todos), "indicator": indicator_message},
+                        )
                         return
                     tool_name = _handle_mcp_tool_use(content.name)
                     self.controller.add_tool_use(name=tool_name, input=content.input)
+                    assistant_record["tool_calls"].append(
+                        {
+                            "tool_name": tool_name,
+                            "input": self._json_safe(content.input),
+                            "tool_use_id": getattr(content, "id", None),
+                        }
+                    )
+            if assistant_record["text_blocks"] or assistant_record["tool_calls"] or assistant_record["thinking"]:
+                self._append_session_event("assistant_message", assistant_record)
         elif isinstance(msg, UserMessage):
             for content in msg.content:
                 if isinstance(content, ToolResultBlock):
                     if isinstance(content.content, str):
                         if content.content.find("Todos") != -1:
                             return
+                    payload = {
+                        "is_error": content.is_error,
+                        "content": self._json_safe(content.content),
+                        "tool_use_id": getattr(content, "tool_use_id", None),
+                    }
                     self.controller.add_tool_use_result(content.is_error, content.content) # type: ignore
+                    self._append_session_event("tool_result", payload)
         elif isinstance(msg, SystemMessage):
             if getattr(msg, "subtype", "") == "init":
-                self.controller.set_work_indicator(True, "任务正在进行，请稍候...")
+                self.controller.set_work_indicator(True, "Tradex is working in progress ...")
+            self._append_session_event(
+                "system_message",
+                {"subtype": getattr(msg, "subtype", None), "content": getattr(msg, "content", None)},
+            )
         elif isinstance(msg, ResultMessage):
             self.controller.set_work_indicator(False)
-            duration_text = self._format_duration(getattr(msg, "duration_ms", None))
+            duration_ms = getattr(msg, "duration_ms", None)
+            duration_text = self._format_duration(duration_ms)
             self.controller.add_system_message(f"任务已完成，耗时{duration_text}")
+            self._append_session_event(
+                "result_message",
+                {
+                    "duration_ms": duration_ms,
+                    "usage": self._json_safe(getattr(msg, "usage", None)),
+                    "metadata": self._json_safe(getattr(msg, "metadata", None)),
+                },
+            )
 
     async def prompt_for_tool_approval(self, tool_name, input_params, *args, **kwargs):
         future = asyncio.Future()
@@ -187,6 +254,48 @@ class TradexApp(AgentApp):
             return PermissionResultAllow()
         else:
             return PermissionResultDeny()
+
+    def _append_session_event(self, event: str, payload: Dict[str, Any]) -> None:
+        if not self.session_id:
+            return
+        record = {
+            "event": event,
+            "timestamp": datetime.now().astimezone().isoformat(),
+            "payload": self._json_safe(payload),
+        }
+        self.session_history.append(record)
+
+    def _json_safe(self, data: Any) -> Any:
+        if isinstance(data, dict):
+            return {k: self._json_safe(v) for k, v in data.items()}
+        if isinstance(data, list):
+            return [self._json_safe(item) for item in data]
+        if isinstance(data, (str, int, float, bool)) or data is None:
+            return data
+        if isinstance(data, Path):
+            return str(data)
+        return str(data)
+
+    def _save_session_history(self) -> None:
+        if not self.session_id:
+            return
+        root = self.storage_root
+        if not root and self.base_cwd:
+            root = self.base_cwd / ".tradex"
+        if not root:
+            root = (self.cwd or Path.cwd()) / ".tradex"
+        session_dir = root / "sessions" / self.session_id
+        session_dir.mkdir(parents=True, exist_ok=True)
+        history_path = session_dir / "history.json"
+        session_data = {
+            "session_id": self.session_id,
+            "started_at": self.session_started_at,
+            "ended_at": datetime.now().astimezone().isoformat(),
+            "cwd": str(self.cwd) if self.cwd else None,
+            "history": self.session_history,
+        }
+        with history_path.open("w", encoding="utf-8") as fp:
+            json.dump(session_data, fp, ensure_ascii=False, indent=2)
 
     def _handle_command(self, command: str) -> bool:
         """
