@@ -188,8 +188,10 @@ async def ths_sell_stock_tool(args: Dict[str, Any]) -> Dict[str, Any]:
 
 MCP_NAME = "tradex_easytrader"
 MCP_TOOLS = [
-
+    "ths_buy_stock",
+    "ths_sell_stock"
 ]
+MCP_DESCRIBE = "获得使用同花顺下单客户端买卖股票的能力"
 __mcp__ = create_sdk_mcp_server(
     name=MCP_NAME,
     tools=[

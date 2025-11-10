@@ -33,6 +33,35 @@ FINANCE_QUERY_MAP: Dict[str, Callable[..., Any]] = {
     "dupont": bs.query_dupont_data,
 }
 
+_WORKSPACE_DIR: Path | None = None
+
+
+def init_extension(config: Dict[str, Any], ctl: Any, ctx: Dict[str, Any] | None = None) -> None:
+    """
+    初始化 baostock 扩展并记录 workspace 目录，供文件保存使用。
+
+    :param config: 扩展配置，当前未使用，保留以兼容未来参数。
+    :type config: dict
+    :param ctl: TUI 控制器，可用于输出初始化日志。
+    :type ctl: Any
+    :param ctx: 运行上下文，需提供 ``workspace`` 字段指向会话目录。
+    :type ctx: dict | None
+    """
+
+    del config  # 尚未使用配置参数
+    global _WORKSPACE_DIR
+    workspace_value = ctx.get("workspace") if ctx else None
+    if workspace_value:
+        workspace_path = Path(workspace_value).expanduser().resolve()
+    else:
+        workspace_path = Path.cwd()
+    _WORKSPACE_DIR = workspace_path
+    if ctl and hasattr(ctl, "add_log_message"):
+        ctl.add_log_message(
+            f"tradex_baostock - workspace 目录设定为: {workspace_path}",
+            "info",
+        )
+
 
 @contextmanager
 def _baostock_session() -> Iterable[None]:
@@ -196,7 +225,8 @@ def _save_dataframe_if_needed(
 
     path = Path(file_path).expanduser()
     if not path.is_absolute():
-        path = (Path.cwd() / path).resolve()
+        base_dir = _WORKSPACE_DIR or Path.cwd()
+        path = (base_dir / path).resolve()
     suffix = path.suffix.lower()
     path.parent.mkdir(parents=True, exist_ok=True)
     if suffix == ".csv":
@@ -456,15 +486,7 @@ async def baostock_valuation_daily_tool(args: Dict[str, Any]) -> Dict[str, Any]:
         "code_name": {
             "type": "string",
             "description": "证券名称（可模糊），与code二选一",
-        },
-        "save_to_file": {
-            "type": ["boolean", "string"],
-            "description": "是否将结果保存为parquet，需配合save_file_path",
-        },
-        "save_file_path": {
-            "type": "string",
-            "description": "保存parquet文件的目标路径，可为相对路径",
-        },
+        }
     },
 )
 async def baostock_stock_basic_tool(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -481,16 +503,10 @@ async def baostock_stock_basic_tool(args: Dict[str, Any]) -> Dict[str, Any]:
     code_name = args.get("code_name")
     try:
         with _baostock_session():
-            rs = bs.query_stock_basic(code=code, code_name=code_name)
+            rs = bs.query_stock_basic(code=code, code_name=code_name)   # type: ignore
             df_data = _baostock_dataframe(rs)
         if df_data.empty:
             return _format_error_response("未查询到证券基本资料")
-        try:
-            saved_path = _save_dataframe_if_needed(df_data, args)
-        except ValueError as exc:
-            return _format_error_response(str(exc))
-        if saved_path:
-            return _format_saved_path_response(saved_path)
         return _format_dataframe_response(df_data)
     except Exception as exc:  # pragma: no cover
         return _format_error_response(f"获取证券基本资料失败：{exc}")
@@ -571,6 +587,7 @@ MCP_TOOLS = [
     "baostock_stock_basic",
     "baostock_financial_quarterly",
 ]
+MCP_DESCRIBE = "获得从baostock获取历史数据的能力，目前支持：获取A股历史K线（日线/分钟线）和指数历史K线（日线/分钟线）；获取A股估值数据；获取A股基础资料；获取季频财务指标）"
 __mcp__ = create_sdk_mcp_server(
     name=MCP_NAME,
     tools=[

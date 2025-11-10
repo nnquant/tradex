@@ -164,6 +164,7 @@ MCP_TOOLS = [
     "stock_zt_pool_dtgc",
     "stock_info_global_em"
 ]
+MCP_DESCRIBE = "获得从akshare获取数据的能力，目前支持涨停板数据和财经资讯数据"
 __mcp__ = create_sdk_mcp_server(
     name=MCP_NAME,
     tools=[

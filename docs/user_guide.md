@@ -30,7 +30,7 @@
 2. 安装 Claude Code CLI：`npm install -g @anthropic-ai/claude-code && claude --version`；
 3. 安装 `uv`：`Invoke-WebRequest https://astral.sh/uv/install.ps1 -UseBasicParsing | Invoke-Expression`，随后执行 `uv pip config set --global index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple`；
 4. 在仓库根目录运行 `uv sync`；
-5. 通过 `uv run python run_tradex.py --help` 验证依赖是否齐全。
+5. 通过 `uv run tradex --help` 验证统一 CLI 是否就绪。
 
 ## 2. 配置 Tradex
 
@@ -57,7 +57,7 @@ Tradex 通过 `claude_agent_sdk` 调用 Claude/DeepSeek 兼容接口，本节决
 | `model_name` | 主模型 | 默认 `deepseek-chat`，用于长对话与复杂任务。可以填 `claude-3-5-sonnet` 等其他兼容模型。 |
 | `fast_model_name` | 快速模型 | 用于补全、轻量级工具调用或审核请求，可与 `model_name` 相同。 |
 
-> 提示：如需频繁切换模型，可维护多份 `*.toml`，通过 `uv run python run_tradex.py --config path/to/xxx.toml` 自由切换。
+> 提示：如需频繁切换模型，可维护多份 `*.toml`，通过 `uv run tradex --config path/to/xxx.toml` 自由切换。
 
 ### 2.4 `[agent]`
 
@@ -84,10 +84,11 @@ xiadan_path = "D:/software/同花顺远航版/transaction/xiadan.exe"
 ### 3.1 启动方式
 
 ```bash
-uv run python run_tradex.py --config tradex.config.toml
+uv run tradex --config tradex.config.toml
 ```
 
-- `--config` 指向你的配置文件，默认为仓库根目录下的 `tradex.config.toml`；
+- Tradex 已整合为单一 CLI：直接 `uv run tradex` 会读取默认配置并启动主应用，必要时可附带 `--config` 切换不同文件；
+- 配置助手被收纳为子命令 `uv run tradex config --project-root . --extensions-dir src/extension`，可在同一入口扫描扩展与生成模板；
 - 首次运行时将初始化日志目录并加载所有启用的扩展。
 
 ### 3.2 界面快速导览

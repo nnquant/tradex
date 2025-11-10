@@ -53,8 +53,7 @@ class TradexHelperApp:
         if not self.config_manager.exists():
             self.console.print(
                 Panel.fit(
-                    "未检测到 Tradex 配置文件，已启动首次配置向导。",
-                    title="Tradex Helper",
+                    "未检测到 Tradex 配置文件，已启动首次配置向导。"
                 )
             )
             self.config_manager.reset()
@@ -91,8 +90,7 @@ class TradexHelperApp:
         self.config_manager.save()
         self.console.print(
             Panel.fit(
-                f"配置已写入 {self.config_manager.config_path}",
-                title="完成",
+                f"配置已写入 {self.config_manager.config_path}"
             )
         )
 
@@ -134,7 +132,6 @@ class TradexHelperApp:
         """
 
         while True:
-            # self.console.print(self._build_menu_panel())
             choice = questionary.select(
                 "使用方向键选择功能，Enter 确认",
                 choices=[
@@ -160,17 +157,23 @@ class TradexHelperApp:
                 self.console.print("已退出 Tradex Helper。")
                 break
 
-    def _build_menu_panel(self) -> Panel:
-        table = Table.grid(padding=1)
-        table.add_row("[bold]1[/]. 查看配置摘要")
-        table.add_row("[bold]2[/]. 管理扩展")
-        table.add_row("[bold]3[/]. 编辑模型配置")
-        table.add_row("[bold]4[/]. 校验配置")
-        table.add_row("[bold]5[/]. 退出")
-        return Panel(table, title="Tradex Helper 主菜单", border_style="white")
-
     def _handle_view_summary(self) -> None:
         self._print_summary(title="配置摘要")
+
+    def _format_candidate_label(self, candidate: ExtensionCandidate) -> str:
+        """
+        构造扩展选择菜单的显示文本。
+
+        :param candidate: 扩展候选信息。
+        :type candidate: ExtensionCandidate
+        :returns: questionary 使用的多行标签。
+        :rtype: str
+        """
+
+        label = f"{candidate.name} · {candidate.module_path}"
+        if candidate.description:
+            label = f"{label} · {candidate.description}"
+        return label
 
     def _print_summary(self, title: str) -> None:
         summary = self.config_manager.summarize()
@@ -188,8 +191,7 @@ class TradexHelperApp:
         preselected = agent.get("extension_enabled", [])
         self.console.print(
             Panel(
-                "根据提示选择需要启用的扩展，已启用的扩展会自动覆盖路径配置。",
-                title="扩展管理",
+                "根据提示选择需要启用的扩展，已启用的扩展会自动覆盖路径配置。"
             )
         )
         selected = self._prompt_extension_selection(preselected=preselected, allow_skip=True)
@@ -266,7 +268,7 @@ class TradexHelperApp:
 
         choices = [
             questionary.Choice(
-                title=f"{candidate.name} · {candidate.module_path}",
+                title=self._format_candidate_label(candidate),
                 value=candidate.name,
                 checked=candidate.name in preselected,
             )

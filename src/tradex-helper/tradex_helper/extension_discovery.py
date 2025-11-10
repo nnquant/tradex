@@ -3,7 +3,7 @@ tradex_helper.extension_discovery
 ================================
 
 用于扫描 `src/extensions`（或向后兼容的 `src/extension`）目录，解析扩展模块是否满足
-Tradex 约定的 `MCP_NAME`、`__mcp__` 与 `__mcp_allowed_tools__` 要求。
+Tradex 约定的 `MCP_NAME`、`__mcp__` 与 `__mcp_allowed_tools__` 要求，并提取 MCP 描述信息。
 """
 
 from __future__ import annotations
@@ -12,6 +12,8 @@ import ast
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Sequence
+
+_DESC_FIELDS = {"MCP_DESC", "MCP_DESCRIBE"}
 
 
 @dataclass(slots=True)
@@ -31,6 +33,8 @@ class ExtensionCandidate:
     :type has_mcp_server: bool
     :param has_allowed_tools: 是否声明了 `__mcp_allowed_tools__`。
     :type has_allowed_tools: bool
+    :param description: MCP 描述字段内容，若未提供则为 ``None``。
+    :type description: str | None
     """
 
     name: str
@@ -39,6 +43,7 @@ class ExtensionCandidate:
     has_mcp_name: bool
     has_mcp_server: bool
     has_allowed_tools: bool
+    description: str | None = None
 
     def is_valid(self) -> bool:
         """
@@ -101,11 +106,15 @@ def _parse_extension_file(project_root: Path, file_path: Path) -> ExtensionCandi
         "__mcp__": False,
         "__mcp_allowed_tools__": False,
     }
+    description: str | None = None
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign):
             for target in node.targets:
-                if isinstance(target, ast.Name) and target.id in flags:
-                    flags[target.id] = True
+                if isinstance(target, ast.Name):
+                    if target.id in flags:
+                        flags[target.id] = True
+                    if target.id in _DESC_FIELDS and description is None:
+                        description = _extract_str_constant(node.value)
 
     rel_module = _build_module_path(project_root, file_path)
     name = file_path.stem
@@ -116,7 +125,16 @@ def _parse_extension_file(project_root: Path, file_path: Path) -> ExtensionCandi
         has_mcp_name=flags["MCP_NAME"],
         has_mcp_server=flags["__mcp__"],
         has_allowed_tools=flags["__mcp_allowed_tools__"],
+        description=description,
     )
+
+
+def _extract_str_constant(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Str):
+        return node.s
+    return None
 
 
 def _build_module_path(project_root: Path, file_path: Path) -> str:
