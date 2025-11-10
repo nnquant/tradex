@@ -10,6 +10,10 @@ dependencies = [
     "tradex_cli",
     "tradex_tui",
     "tradex_helper",
+    "pandas>=2.3.3",
+    "numpy>=2.3.4",
+    "matplotlib>=3.10.7",
+    "scipy>=1.16.3",
 ]
 
 [project.scripts]

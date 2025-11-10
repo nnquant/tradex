@@ -217,6 +217,7 @@ class ToolUseResultBlock(Static):
         """
         # 使用 DOTALL 模式匹配多行
         cleaned = re.sub(r"<system-reminder>.*?</system-reminder>", "", text, flags=re.DOTALL)
+        cleaned = re.sub(r"<tool_use_error>.*?</tool_use_error>", "", text, flags=re.DOTALL)
         return cleaned.strip()
 
     @staticmethod
