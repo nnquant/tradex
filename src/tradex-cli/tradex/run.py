@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import Sequence
 
-import click
+import click, sys, os
 
 from tradex import TradexApp
 from tradex_helper import main as helper_main
 
 DEFAULT_CONFIG_PATH = "tradex.config.toml"
+sys.path.append(os.getcwd())
 
 
 def _run_tradex(config_path: str) -> None:
