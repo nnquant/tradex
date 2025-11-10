@@ -92,21 +92,14 @@ uv sync
 开始使用
 --------
 
-1. 复制配置模板  
-   将目录下的配置文件 `tradex.config.example.toml` 重命名为 `tradex.config.toml`  
-
-   建议使用与运行环境匹配的文件名，如需多份配置可命名为 `tradex.config.paper.toml`、`tradex.config.live.toml` 等。
-
-2. 根据真实环境填写配置  
-   - `model.api_key`：替换为你的真实大模型密钥，必要时也可自建代理并更新 `model.base_url`。  
-   - `environment.cwd`：保持为仓库根目录或设为运行脚本/数据所在路径，确保相对路径可解析。  
-   - `extensions` 与 `extension.tradex_easytrader`：仅保留需要的扩展，像 `xiadan_path` 等字段必须指向实际可执行程序。  
-   完成修改后请把配置文件保存在安全位置，并根据团队合规策略设置访问权限。
-
-3. 配置与启动  
+1. 运行配置向导  
    ```shell
-   uv run tradex config --config tradex.config.toml
-   uv run tradex --config tradex.config.toml
+   uv run tradex config
    ```  
-   第一个命令调用统一 CLI 的配置子命令，可扫描扩展目录、生成/校验配置并写入 `tradex.config.toml`。  
-   第二个命令启动主应用；若维护多份配置，可使用 `--config path/to/xxx.toml` 切换。首次运行请观察终端日志，确认模型连通性、扩展加载状态及账户接口是否正常。
+   配置助手会引导你选择或创建 `tradex.config.toml`，并逐项填写模型、权限、扩展等字段；如需多份配置，可在向导内自定义文件名。
+
+2. 启动主应用  
+   ```shell
+   uv run tradex
+   ```  
+   默认读取仓库根目录下的配置文件，若向导中保存为其它名称，可加 `--config path/to/xxx.toml` 切换。首次运行请观察终端日志，确认模型连通性、扩展加载状态及账户接口是否正常。
