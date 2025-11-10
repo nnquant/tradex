@@ -1,4 +1,5 @@
 import asyncio, importlib
+import inspect
 import json
 import platform
 import uuid
@@ -110,7 +111,13 @@ class TradexApp(AgentApp):
         extension_enabled = agent_config.get("extension_enabled", [])
         extension_config = self.config.get("extensions", {})
         extension_options = self.config.get("extension", {})
-        mcp_servers, allowed_tools = self.init_extensions_from_config(extension_config, extension_options, extension_enabled)
+        ctx = {"workspace": str(cwd)}
+        mcp_servers, allowed_tools = self.init_extensions_from_config(
+            extension_config,
+            extension_options,
+            extension_enabled,
+            ctx=ctx,
+        )
 
         prompt_context = {
             "ENV_CWD": str(cwd),
@@ -126,12 +133,19 @@ class TradexApp(AgentApp):
             can_use_tool=self.prompt_for_tool_approval, # type: ignore
             mcp_servers=mcp_servers, # type: ignore
             allowed_tools=allowed_tools,
+            setting_sources=[]
         )
 
         self.claude_client = ClaudeSDKClient(options)
         await self.claude_client.connect()
 
-    def init_extensions_from_config(self, extension_config: Dict[str, Any], extension_options: Dict[str, Any], extension_enabled: List[str] = []):
+    def init_extensions_from_config(
+        self,
+        extension_config: Dict[str, Any],
+        extension_options: Dict[str, Any],
+        extension_enabled: List[str] = [],
+        ctx: Dict[str, Any] | None = None,
+    ):
         mcp_servers = {}
         allowed_tools = []
         self.controller.add_log_message(f"tradex - 已启用的扩展: {', '.join(extension_enabled)}", "info")
@@ -149,7 +163,20 @@ class TradexApp(AgentApp):
                 mcp_servers[mcp_name] = ext_mcp
                 allowed_tools.extend(ext_allowed_tools)
                 if init_func:
-                    init_func(extension_options.get(k, {}), self.controller)
+                    config = extension_options.get(k, {})
+                    if ctx is None:
+                        init_func(config, self.controller)
+                    else:
+                        sig = inspect.signature(init_func)
+                        params = sig.parameters.values()
+                        supports_ctx = any(
+                            param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+                            for param in params
+                        ) or len(params) >= 3
+                        if supports_ctx:
+                            init_func(config, self.controller, ctx)
+                        else:
+                            init_func(config, self.controller)
             except Exception as e:
                 continue
         return mcp_servers, allowed_tools

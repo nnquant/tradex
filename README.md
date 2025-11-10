@@ -78,7 +78,7 @@ uv sync
 - `node -v` / `npm -v` 显示版本；
 - `claude --version` 至少为 2.0.0；
 - `uv --version` 正常输出；
-- `uv run python run_tradex.py --help` 可验证基础依赖是否齐全。
+- `uv run tradex --help` 可验证统一 CLI 是否可用。
 
 开始使用
 --------
@@ -96,6 +96,7 @@ uv sync
 
 3. 启动应用  
    ```shell
-   uv run run_tradex.py
+   uv run tradex --config tradex.config.toml
    ```  
-   上述命令默认读取 `tradex.config.toml`。如果你创建了自定义文件，可通过 `uv run run_tradex.py --config tradex.config.paper.toml` 显式指定。首次启动建议在终端关注日志，验证模型连通性、扩展加载状态及账户接口是否正常。
+   Tradex 现已整合为单一 CLI：直接运行 `uv run tradex` 会读取默认的 `tradex.config.toml` 并打开主应用，必要时可改用 `--config path/to/xxx.toml` 切换配置文件。  
+   如需调用图形化配置助手，可执行 `uv run tradex config --project-root . --extensions-dir src/extension` 并按提示完成扩展扫描。首次启动建议在终端关注日志，验证模型连通性、扩展加载状态及账户接口是否正常。
