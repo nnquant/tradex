@@ -116,7 +116,7 @@ class TradexHelperApp:
     def _prompt_agent_settings(self, selected_extensions: Sequence[str]) -> dict[str, Sequence[str]]:
         permission_mode = Prompt.ask(
             "agent.permission_mode",
-            choices=["default", "acceptEdits""bypassPermissions"],
+            choices=["default", "acceptEdits", "bypassPermissions"],
             default="acceptEdits",
         )
         return {
