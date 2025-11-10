@@ -1,195 +1,211 @@
 @echo off
-REM -------------------------------------------
-REM  Tradex 一键安装脚本
-REM  功能：
-REM    1. 检测并安装 Node.js / npm
-REM    2. 设置 npm 中国镜像源
-REM    3. 安装并检测 Claude Code CLI
-REM    4. 检测并安装 uv，并设置中国镜像源
-REM    5. 执行 uv sync 同步依赖
-REM  注意：请以管理员身份运行，以便 winget/msiexec 能顺利安装软件
-REM -------------------------------------------
-
 setlocal EnableExtensions EnableDelayedExpansion
-chcp 65001 >nul
 
+set "REPO_URL=https://github.com/nnquant/tradex.git"
+if not defined TRADEX_INSTALL_DIR (
+    set "TRADEX_INSTALL_DIR=%USERPROFILE%\tradex"
+) else (
+    set "TRADEX_INSTALL_DIR=%TRADEX_INSTALL_DIR%"
+)
 set "USE_CHINA_MIRROR=Y"
-call :ask_mirror_preference
 
-pushd "%~dp0"
+call :ask_mirror_preference
+call :ensure_git
+call :prepare_repo
+pushd "%TRADEX_INSTALL_DIR%"
 call :ensure_node
 call :configure_npm_registry
 call :ensure_claude_code
 call :ensure_uv
 call :configure_uv_registry
 call :run_uv_sync
-echo.
-echo 所有依赖处理完成。
+call :run_config
+echo 安装流程结束，可通过命令：uv run tradex
 popd
 exit /b 0
 
 :ask_mirror_preference
-REM 询问是否切换至国内镜像源
-set /p "MIRROR_CHOICE=是否将 npm 和 uv 切换为国内镜像源？(Y/n): "
-if not defined MIRROR_CHOICE (
-    set "MIRROR_CHOICE=Y"
-)
+set /p "MIRROR_CHOICE=Switch npm/uv to China mirrors? (Y/n): "
+if not defined MIRROR_CHOICE set "MIRROR_CHOICE=Y"
 set "MIRROR_CHOICE=!MIRROR_CHOICE:~0,1!"
 if /i "!MIRROR_CHOICE!"=="Y" (
     set "USE_CHINA_MIRROR=Y"
-    echo 已选择使用国内镜像源。
+    echo Use China mirrors.
 ) else (
     set "USE_CHINA_MIRROR=N"
-    echo 已选择保留官方镜像源。
+    echo Keep official mirrors.
+)
+goto :eof
+
+:ensure_git
+where git >nul 2>nul
+if %errorlevel%==0 (
+    for /f "tokens=1,*" %%i in ('git --version 2^>nul') do (
+        echo Found %%i %%j
+        goto :eof
+    )
+    goto :eof
+)
+echo Git not found, installing...
+call :install_git
+where git >nul 2>nul
+if not %errorlevel%==0 (
+    echo Failed to install git.
+    exit /b 1
+)
+echo Git ready.
+goto :eof
+
+:install_git
+where winget >nul 2>nul
+if %errorlevel%==0 (
+    winget install -e --id Git.Git --source winget --accept-package-agreements --accept-source-agreements
+    if %errorlevel%==0 goto :eof
+)
+echo winget installation of git failed, install manually.
+exit /b 1
+
+:prepare_repo
+if exist "%TRADEX_INSTALL_DIR%\.git" (
+    echo Repository exists, running git pull...
+    git -C "%TRADEX_INSTALL_DIR%" pull
+    if not %errorlevel%==0 (
+        echo git pull failed.
+        exit /b 1
+    )
+    goto :eof
+)
+if exist "%TRADEX_INSTALL_DIR%" (
+    echo Target directory exists but is not a git repo.
+    exit /b 1
+)
+echo Cloning Tradex repository to %TRADEX_INSTALL_DIR% ...
+git clone "%REPO_URL%" "%TRADEX_INSTALL_DIR%"
+if not %errorlevel%==0 (
+    echo git clone failed.
+    exit /b 1
 )
 goto :eof
 
 :ensure_node
-REM 检测 Node.js 是否可用
 where node >nul 2>nul
 if %errorlevel%==0 (
     for /f %%i in ('node -v 2^>nul') do (
-        set "NODE_VERSION_FOUND=%%i"
-        goto :node_found
+        echo Found Node.js %%i
+        goto :eof
     )
-:node_found
-    echo 已检测到 Node.js !NODE_VERSION_FOUND!。
     goto :eof
 )
-
-echo 未检测到 Node.js，开始自动安装...
+echo Node.js not found, installing...
 call :install_node
 where node >nul 2>nul
 if not %errorlevel%==0 (
-    echo 无法自动安装 Node.js，请手动安装后重试。
+    echo Failed to install Node.js.
     exit /b 1
 )
+echo Node.js ready.
 goto :eof
 
 :install_node
-REM 优先尝试使用 winget 安装
 where winget >nul 2>nul
 if %errorlevel%==0 (
-    echo 使用 winget 安装 Node.js（LTS）。
     winget install -e --id OpenJS.NodeJS.LTS --source winget --accept-package-agreements --accept-source-agreements
-    if %errorlevel%==0 (
-        goto :eof
-    )
-    echo winget 安装失败，将尝试镜像下载安装包。
-) else (
-    echo 未检测到 winget，尝试镜像下载安装包。
+    if %errorlevel%==0 goto :eof
+    echo winget install failed, downloading MSI...
 )
-
 set "NODE_VERSION=20.11.1"
 set "NODE_MSI=%TEMP%\node-%NODE_VERSION%.msi"
 set "NODE_URL=https://npmmirror.com/mirrors/node/v%NODE_VERSION%/node-v%NODE_VERSION%-x64.msi"
-echo 从中国镜像下载 Node.js %NODE_VERSION% 安装包...
 powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri '%NODE_URL%' -OutFile '%NODE_MSI%'"
 if not %errorlevel%==0 (
-    echo Node.js 安装包下载失败：%NODE_URL%
+    echo Failed to download Node.js MSI: %NODE_URL%
     exit /b 1
 )
-echo 运行静默安装（可能需要几分钟）...
 msiexec /i "%NODE_MSI%" /qn /norestart
 if not %errorlevel%==0 (
-    echo Node.js 安装失败，错误码 %errorlevel%。
+    echo Node.js MSI installation failed %errorlevel%.
     exit /b 1
 )
-echo Node.js 安装完成。
 goto :eof
 
 :configure_npm_registry
-REM 设置 npm 中国镜像源
 if /i "!USE_CHINA_MIRROR!" NEQ "Y" (
-    echo 用户选择不切换 npm 镜像源，跳过。
+    echo Keep npm default registry.
     goto :eof
 )
 where npm >nul 2>nul
 if not %errorlevel%==0 (
-    echo 未检测到 npm，跳过镜像配置。
+    echo npm not found, skip registry setup.
     goto :eof
 )
 set "NPM_REGISTRY=https://registry.npmmirror.com"
 for /f %%i in ('npm config get registry 2^>nul') do set "CURRENT_NPM_REGISTRY=%%i"
 if /i "!CURRENT_NPM_REGISTRY!"=="%NPM_REGISTRY%" (
-    echo npm 已使用国内镜像源：%NPM_REGISTRY%
+    echo npm already uses %NPM_REGISTRY%.
     goto :eof
 )
-echo 将 npm registry 设置为 %NPM_REGISTRY% ...
+echo Set npm registry to %NPM_REGISTRY% ...
 npm config set registry %NPM_REGISTRY%
-if %errorlevel%==0 (
-    echo npm 镜像源设置完成。
-) else (
-    echo npm 镜像源设置失败，请手动执行：npm config set registry %NPM_REGISTRY%
+if not %errorlevel%==0 (
+    echo Failed to configure npm registry.
+    exit /b 1
 )
 goto :eof
 
 :ensure_claude_code
-REM 检测 Claude Code CLI（命令行名称：claude）
 where claude >nul 2>nul
 if %errorlevel%==0 (
     for /f %%i in ('claude --version 2^>nul') do (
-        set "CLAUDE_VERSION=%%i"
-        goto :claude_found
+        echo Found Claude Code CLI %%i
+        goto :eof
     )
-:claude_found
-    if defined CLAUDE_VERSION (
-        echo 已检测到 Claude Code CLI 版本 !CLAUDE_VERSION!。
-    ) else (
-        echo 已检测到 Claude Code CLI。
-    )
+    echo Claude Code CLI found.
     goto :eof
 )
-
-echo 未检测到 Claude Code CLI，开始使用 npm 全局安装...
+echo Claude Code CLI not found, installing...
 call :install_claude_code
 where claude >nul 2>nul
 if not %errorlevel%==0 (
-    echo Claude Code CLI 安装失败，请确认 npm 全局 bin 目录已加入 PATH。
+    echo Failed to install Claude Code CLI.
     exit /b 1
 )
-echo Claude Code CLI 安装完成。
+echo Claude Code CLI ready.
 goto :eof
 
 :install_claude_code
 where npm >nul 2>nul
 if not %errorlevel%==0 (
-    echo 未检测到 npm，无法安装 Claude Code CLI。
+    echo npm not found, cannot install Claude Code CLI.
     exit /b 1
 )
-echo 正在安装 @anthropic-ai/claude-code（可能需要几分钟）...
 npm install -g @anthropic-ai/claude-code
 if not %errorlevel%==0 (
-    echo npm 安装 Claude Code CLI 失败，请手动执行：npm install -g @anthropic-ai/claude-code
+    echo npm install @anthropic-ai/claude-code failed.
     exit /b 1
 )
 goto :eof
 
 :ensure_uv
-REM 检测 uv 是否可用
 call :locate_uv
 if defined UV_BIN (
-    echo 已检测到 uv，可执行文件：!UV_BIN!
+    echo Found uv: !UV_BIN!
     goto :eof
 )
-
-echo 未检测到 uv，开始自动安装...
+echo uv not found, installing...
 powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest https://astral.sh/uv/install.ps1 -UseBasicParsing | Invoke-Expression"
 if not %errorlevel%==0 (
-    echo uv 安装脚本执行失败。
+    echo uv installer failed.
     exit /b 1
 )
-REM 尝试再次定位 uv
 call :locate_uv
 if not defined UV_BIN (
-    echo 无法找到 uv，请确认安装是否成功。
+    echo uv still missing after install.
     exit /b 1
 )
-echo uv 安装完成：!UV_BIN!
+echo uv ready: !UV_BIN!
 goto :eof
 
 :locate_uv
-REM 寻找 uv 命令路径
 set "UV_BIN="
 for /f "delims=" %%i in ('where uv 2^>nul') do (
     set "UV_BIN=%%i"
@@ -202,42 +218,48 @@ if exist "%USERPROFILE%\.local\bin\uv.exe" (
 goto :eof
 
 :configure_uv_registry
-REM 为 uv 配置中国镜像源
 if /i "!USE_CHINA_MIRROR!" NEQ "Y" (
-    echo 用户选择不切换 uv 镜像源，跳过。
+    echo Keep uv default index.
     goto :eof
 )
+if not defined UV_BIN call :locate_uv
 if not defined UV_BIN (
-    call :locate_uv
-)
-if not defined UV_BIN (
-    echo 未检测到 uv，无法配置镜像源。
+    echo uv not found, cannot set index.
     exit /b 1
 )
 set "UV_INDEX_URL=https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
-echo 将 uv pip index-url 设置为 %UV_INDEX_URL% ...
+echo Set uv pip index-url to %UV_INDEX_URL% ...
 "%UV_BIN%" pip config set --global index-url %UV_INDEX_URL%
 if not %errorlevel%==0 (
-    echo 设置 uv 镜像源失败，请手动执行：uv pip config set --global index-url %UV_INDEX_URL%
+    echo Failed to configure uv pip index.
     exit /b 1
 )
-echo uv 镜像源设置完成。
 goto :eof
 
 :run_uv_sync
-REM 使用 uv 同步依赖
+if not defined UV_BIN call :locate_uv
 if not defined UV_BIN (
-    call :locate_uv
-)
-if not defined UV_BIN (
-    echo 未检测到 uv，无法执行 uv sync。
+    echo uv not found, cannot run uv sync.
     exit /b 1
 )
-echo 运行 uv sync，同步 Python 依赖...
+echo Run uv sync ...
 "%UV_BIN%" sync
 if not %errorlevel%==0 (
-    echo uv sync 执行失败，请检查上方日志。
+    echo uv sync failed.
     exit /b 1
 )
-echo uv sync 完成。
+goto :eof
+
+:run_config
+if not defined UV_BIN call :locate_uv
+if not defined UV_BIN (
+    echo uv not found, cannot run config.
+    exit /b 1
+)
+echo Run Tradex config ...
+"%UV_BIN%" run tradex config
+if not %errorlevel%==0 (
+    echo tradex config returned non-zero exit code.
+    exit /b 1
+)
 goto :eof
