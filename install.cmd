@@ -1,18 +1,15 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 
-set "REPO_URL=https://github.com/nnquant/tradex.git"
-if not defined TRADEX_INSTALL_DIR (
-    set "TRADEX_INSTALL_DIR=%USERPROFILE%\tradex"
-) else (
-    set "TRADEX_INSTALL_DIR=%TRADEX_INSTALL_DIR%"
-)
 set "USE_CHINA_MIRROR=Y"
 
+pushd "%~dp0"
+if errorlevel 1 (
+    echo Failed to enter script directory.
+    exit /b 1
+)
+
 call :ask_mirror_preference
-call :ensure_git
-call :prepare_repo
-pushd "%TRADEX_INSTALL_DIR%"
 call :ensure_node
 call :configure_npm_registry
 call :ensure_claude_code
@@ -20,7 +17,7 @@ call :ensure_uv
 call :configure_uv_registry
 call :run_uv_sync
 call :run_config
-echo 安装流程结束，可通过命令：uv run tradex
+echo Setup finished. Run: uv run tradex
 popd
 exit /b 0
 
@@ -34,56 +31,6 @@ if /i "!MIRROR_CHOICE!"=="Y" (
 ) else (
     set "USE_CHINA_MIRROR=N"
     echo Keep official mirrors.
-)
-goto :eof
-
-:ensure_git
-where git >nul 2>nul
-if %errorlevel%==0 (
-    for /f "tokens=1,*" %%i in ('git --version 2^>nul') do (
-        echo Found %%i %%j
-        goto :eof
-    )
-    goto :eof
-)
-echo Git not found, installing...
-call :install_git
-where git >nul 2>nul
-if not %errorlevel%==0 (
-    echo Failed to install git.
-    exit /b 1
-)
-echo Git ready.
-goto :eof
-
-:install_git
-where winget >nul 2>nul
-if %errorlevel%==0 (
-    winget install -e --id Git.Git --source winget --accept-package-agreements --accept-source-agreements
-    if %errorlevel%==0 goto :eof
-)
-echo winget installation of git failed, install manually.
-exit /b 1
-
-:prepare_repo
-if exist "%TRADEX_INSTALL_DIR%\.git" (
-    echo Repository exists, running git pull...
-    git -C "%TRADEX_INSTALL_DIR%" pull
-    if not %errorlevel%==0 (
-        echo git pull failed.
-        exit /b 1
-    )
-    goto :eof
-)
-if exist "%TRADEX_INSTALL_DIR%" (
-    echo Target directory exists but is not a git repo.
-    exit /b 1
-)
-echo Cloning Tradex repository to %TRADEX_INSTALL_DIR% ...
-git clone "%REPO_URL%" "%TRADEX_INSTALL_DIR%"
-if not %errorlevel%==0 (
-    echo git clone failed.
-    exit /b 1
 )
 goto :eof
 

@@ -7,8 +7,8 @@ Tradex
 一键安装（推荐）
 ----------------
 
-1. 以管理员权限打开 PowerShell 或 CMD，定位到存放 `install.cmd` 的目录。
-2. 可选：若想把仓库放在自定义目录，先执行 `set TRADEX_INSTALL_DIR=D:\quant\tradex`（未设置时默认克隆到 `%USERPROFILE%\tradex`）。
+1. 获取 Tradex 仓库（例如 `git clone https://github.com/nnquant/tradex.git` 或下载压缩包）并进入根目录。
+2. 以管理员权限打开 PowerShell 或 CMD，定位到仓库根目录。
 3. 运行脚本：
 
 ```powershell
@@ -17,13 +17,11 @@ Tradex
 
 脚本按照最少输出的原则完成以下任务：
 
-1. 检测/安装 Git；缺失时优先使用 `winget install -e --id Git.Git`。
-2. `git clone https://github.com/nnquant/tradex.git %TRADEX_INSTALL_DIR%`（已存在则执行 `git pull`），并切换到该目录。
-3. 安装 Node.js / npm（优先 `winget install -e --id OpenJS.NodeJS.LTS`，失败则回落至 npmmirror 安装包）。
-4. 按需把 npm registry 设置为 `https://registry.npmmirror.com`，安装/检测 `@anthropic-ai/claude-code` CLI。
-5. 安装 `uv`，并在选择加速的情况下把 `uv pip` 的 index 指向清华镜像。
-6. 执行 `uv sync` 还原 Python 依赖。
-7. 自动运行 `uv run tradex config`，引导你创建/校验 `tradex.config.toml`。
+1. 安装 Node.js / npm（优先 `winget install -e --id OpenJS.NodeJS.LTS`，失败则回落至 npmmirror 安装包）。
+2. 按需把 npm registry 设置为 `https://registry.npmmirror.com`，安装/检测 `@anthropic-ai/claude-code` CLI。
+3. 安装 `uv`，并在选择加速的情况下把 `uv pip` 的 index 指向清华镜像。
+4. 执行 `uv sync` 还原 Python 依赖。
+5. 自动运行 `uv run tradex config`，引导你创建/校验 `tradex.config.toml`。
 
 配置向导顺利结束后，终端会提示命令 `uv run tradex` 以启动主应用。若脚本无法把 `%APPDATA%\npm` 等目录加入 PATH，请根据提示手动处理。
 
