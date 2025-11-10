@@ -5,14 +5,23 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "click>=8.1.7",
     "jinja2>=3.1.6",
     "tradex_cli",
     "tradex_tui",
+    "tradex_helper",
 ]
 
+[project.scripts]
+tradex = "tradex.run:cli"
+
+[tool.uv]
+package = true
+
 [tool.uv.workspace]
-members = ["src/tradex-tui", "src/tradex-cli"]
+members = ["src/tradex-tui", "src/tradex-cli", "src/tradex-helper"]
 
 [tool.uv.sources]
 tradex_cli = { workspace = true }
 tradex_tui = { workspace = true }
+tradex_helper = { workspace = true }
