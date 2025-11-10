@@ -1,6 +1,6 @@
 import argparse
 
-from src.tradex import TradexApp
+from tradex import TradexApp
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Run the Tradex application.")

@@ -1,0 +1,20 @@
+[project]
+name = "tradex_cli"
+version = "1.0.0"
+description = "Tradex CLI"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "akshare>=1.17.83",
+    "claude-agent-sdk>=0.1.6",
+    "easytrader>=0.23.7",
+    "loguru>=0.7.3",
+    "tomlkit>=0.13.2",
+    "baostock>=0.8.9",
+    "pyarrow>=22.0.0",
+    "tradex-tui"
+]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"

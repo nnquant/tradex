@@ -55,6 +55,33 @@ def _patch_markdown_h1_render() -> None:
 _patch_markdown_h1_render()
 
 
+def _format_tool_param_value(value: Any, max_lines: int = 3, max_chars: int = 300) -> str:
+    """
+    对工具参数进行字符串化并在超过阈值时截断。
+
+    :param value: 任意类型的参数值。
+    :type value: Any
+    :param max_lines: 允许展示的最大行数。
+    :type max_lines: int
+    :param max_chars: 允许展示的最大字符数。
+    :type max_chars: int
+    :returns: 处理后的参数文本，若被截断则附带 hidden 提示。
+    :rtype: str
+    """
+    text = value if isinstance(value, str) else repr(value)
+    text = text.strip()
+    lines = text.splitlines()
+    if len(lines) > max_lines:
+        shown = "\n".join(lines[:max_lines])
+        hidden_count = len(lines) - max_lines
+        return f"{shown}\n\n... + {hidden_count} hidden"
+    if len(text) > max_chars:
+        shown = text[:max_chars]
+        hidden_count = len(text) - max_chars
+        return f"{shown}\n\n... + {hidden_count} hidden"
+    return text
+
+
 class MsgBlock(Static):
     def __init__(self, body: RenderableType, **panel_kwargs) -> None:
         super().__init__("", classes="msg-block")
@@ -112,9 +139,11 @@ class ToolBlock(Collapsible):
         )
         if isinstance(input_obj, dict):
             for k, v in input_obj.items():
-                table.add_row(f"[bold]{k}[/]", f"{v}")
+                formatted_value = _format_tool_param_value(v)
+                table.add_row(f"[bold]{k}[/]", formatted_value)
         else:
-            table.add_row("[bold]Input[/]", f"{input_obj!r}")
+            formatted_value = _format_tool_param_value(input_obj)
+            table.add_row("[bold]Input[/]", formatted_value)
         self._content = Static(table)
 
     def compose(self):
@@ -161,9 +190,11 @@ class ToolUseApprovalBlock(Static):
         )
         if isinstance(self._input_params, dict):
             for k, v in self._input_params.items():
-                table.add_row(f"[bold]{k}[/]", f"{v}")
+                formatted_value = _format_tool_param_value(v)
+                table.add_row(f"[bold]{k}[/]", formatted_value)
         else:
-            table.add_row("[bold]Input[/]", f"{self._input_params!r}")
+            formatted_value = _format_tool_param_value(self._input_params)
+            table.add_row("[bold]Input[/]", formatted_value)
             
         yield Label(f"[b]• [/]Request to use tool [b]{self._tool_name}[/]")
         yield ListView(

@@ -1,6 +1,6 @@
 [project]
 name = "tradex_tui"
-version = "0.3.4"
+version = "0.3.8"
 description = "Textual + Rich UI components for CLI AI agents (interaction area + status bar + approvals)"
 readme = "README.md"
 requires-python = ">=3.11"
